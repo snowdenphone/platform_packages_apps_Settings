@@ -1,0 +1,51 @@
+name: Claude Code Auto Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  review:
+    # Only run on pull requests or when /review command is used in comments
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/review'))
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code Auto Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            Please review this pull request with focus on:
+            - Code quality and best practices
+            - Potential bugs or security issues
+            - Performance implications
+            - SnowdenPhone OS specific concerns (AOSP integration, security hardening, GrapheneOS compatibility)
+
+            The PR branch is already checked out. Review the changes thoroughly.
+
+            Post detailed feedback as PR comments and highlight specific code issues inline.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue comment:*)"
